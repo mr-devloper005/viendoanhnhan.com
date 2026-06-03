@@ -3,34 +3,35 @@ import { slot4BrandConfig } from '@/editable/theme/brand.config'
 export const globalContent = {
   site: {
     name: slot4BrandConfig.siteName,
-    tagline: slot4BrandConfig.tagline || 'Independent reading platform',
+    tagline: 'Classifieds for deals, services, jobs, property, and local opportunities',
     domain: slot4BrandConfig.domain,
     baseUrl: slot4BrandConfig.baseUrl,
   },
   nav: {
-    tagline: 'Independent reading platform',
+    tagline: 'Local classifieds marketplace',
     primaryLinks: [
-      { label: 'Articles', href: '/articles' },
-      { label: 'Visuals', href: '/image-sharing' },
-      { label: 'Listings', href: '/listings' },
+      { label: 'Classifieds', href: '/classified' },
+      { label: 'Jobs', href: '/classified?category=jobs' },
+      { label: 'Property', href: '/classified?category=property' },
+      { label: 'Services', href: '/classified?category=services' },
       { label: 'Contact', href: '/contact' },
     ],
     actions: {
-      primary: { label: 'Start exploring', href: '/' },
-      secondary: { label: 'Submit', href: '/contact' },
+      primary: { label: 'Browse listings', href: '/classified' },
+      secondary: { label: 'Post an Ad', href: '/create' },
     },
   },
   footer: {
-    tagline: 'Stories, resources, and discoverable posts',
-    description: 'A connected publishing surface for articles, visuals, listings, profiles, bookmarks, and downloadable resources.',
+    tagline: 'Deals, second-hand products, property, jobs, and services',
+    description: 'viendoanhnhan.com helps visitors browse local classifieds, compare offers, find services, and connect with sellers through clear listing pages.',
     columns: [
       {
-        title: 'Explore',
+        title: 'Browse',
         links: [
-          { label: 'Articles', href: '/articles' },
-          { label: 'Listings', href: '/listings' },
-          { label: 'Images', href: '/image-sharing' },
-          { label: 'PDF Library', href: '/pdf' },
+          { label: 'Classifieds', href: '/classified' },
+          { label: 'Jobs', href: '/classified?category=jobs' },
+          { label: 'Property', href: '/classified?category=property' },
+          { label: 'Services', href: '/classified?category=services' },
         ],
       },
       {
@@ -38,17 +39,19 @@ export const globalContent = {
         links: [
           { label: 'About', href: '/about' },
           { label: 'Contact', href: '/contact' },
+          { label: 'Search', href: '/search' },
+          { label: 'Post an Ad', href: '/create' },
         ],
       },
     ],
-    bottomNote: 'Built for clean discovery and connected publishing.',
+    bottomNote: 'Built for practical classified discovery.',
   },
   commonLabels: {
-    readMore: 'Read more',
+    readMore: 'View listing',
     viewAll: 'View all',
-    explore: 'Explore',
+    explore: 'Browse',
     latest: 'Latest',
-    related: 'Related',
+    related: 'Related listings',
     published: 'Published',
   },
 } as const

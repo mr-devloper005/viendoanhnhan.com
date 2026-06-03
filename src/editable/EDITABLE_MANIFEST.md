@@ -1,53 +1,12 @@
-# Slot 4 Editable Manifest
+# viendoanhnhan.com Editable Manifest
 
-Slot 4 is now a reference-ready editable UI architecture.
+This editable area contains the domain-specific classified marketplace UI for viendoanhnhan.com.
 
-## Contract
+Editable files control the visible layout, copy, cards, content labels, visual system, navbar, footer, and page presentation. Core routing, API behavior, data fetching, and backend logic remain outside this folder and should not be changed as part of UI/content updates.
 
-- `src/app/**` is route wiring only.
-- `src/lib/**`, `src/config/**`, and APIs are data/SEO/routing logic only.
-- All visible UI should live inside `src/editable/**`.
-- Navbar, footer, body shell, page layouts, task archives, task details, cards, sections, theme, and copy are editable.
-- Normal UI PRs must only change `src/editable/**`.
+Current design direction:
 
-## Editable Surface
-
-```txt
-src/editable/shell/EditableSiteShell.tsx
-src/editable/shell/EditableNavbar.tsx
-src/editable/shell/EditableFooter.tsx
-src/editable/pages/HomePage.tsx
-src/editable/pages/LoginPage.tsx
-src/editable/pages/SignupPage.tsx
-src/editable/pages/TaskArchivePage.tsx
-src/editable/pages/TaskDetailPage.tsx
-src/editable/pages/*Page.tsx
-src/editable/cards/PostCards.tsx
-src/editable/sections/*.tsx
-src/editable/content/*.ts
-src/editable/theme/*.ts
-src/editable/theme/editable-global.css
-```
-
-## AI Redesign Rule
-
-When giving this folder to AI, ask it to rewrite `src/editable/**` only. It may fully redesign body, nav, footer, page layout, cards, task pages, and detail pages. It must preserve exported component/function names and props.
-
-## Do Not Touch
-
-```txt
-src/app/**
-src/lib/**
-src/config/**
-src/components/**
-.github/**
-Dockerfile
-package.json
-next.config.*
-```
-
-For one-time base infrastructure changes only:
-
-```bash
-ALLOW_INFRASTRUCTURE_CHANGES=1 pnpm guard:editable
-```
+- Blue rounded classified-marketplace interface inspired by the current visual layout.
+- Search-first homepage with category rails, listing cards, animated sections, and practical seller paths.
+- Listing detail pages with image area, seller/contact panels, description, location, related listings, and comments.
+- Domain-relevant copy for deals, second-hand products, jobs, property, services, events, and seller discovery.
