@@ -138,14 +138,14 @@ export default function CreatePage() {
               </div>
 
               <div className="mt-6 grid gap-4">
-                <input className={fieldClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Post title" required />
+                <input className={fieldClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Listing title" required />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <input className={fieldClass} value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Category" />
-                  <input className={fieldClass} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Website or source URL" />
+                  <input className={fieldClass} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Seller website or listing link" />
                 </div>
-                <input className={fieldClass} value={image} onChange={(event) => setImage(event.target.value)} placeholder="Featured image URL" />
-                <textarea className={`${fieldClass} min-h-24`} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short summary" required />
-                <textarea className={`${fieldClass} min-h-48`} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Main content, details, notes, or description" required />
+                <input className={fieldClass} value={image} onChange={(event) => setImage(event.target.value)} placeholder="Listing image URL" />
+                <textarea className={`${fieldClass} min-h-24`} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short listing summary" required />
+                <textarea className={`${fieldClass} min-h-48`} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Price, condition, location, contact details, and full listing description" required />
               </div>
 
               {created ? (

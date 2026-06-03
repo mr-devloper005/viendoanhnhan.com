@@ -1,100 +1,59 @@
-'use client'
-
-import { Building2, FileText, Image as ImageIcon, Mail, MapPin, Phone, Sparkles, Bookmark } from 'lucide-react'
+import { Building2, Mail, MapPin, Phone, PlusCircle } from 'lucide-react'
+import Link from 'next/link'
+import { fetchTaskPosts } from '@/lib/task-data'
+import { getEditableExcerpt, getEditablePostImage, postHref } from '@/editable/cards/PostCards'
 import { pagesContent } from '@/editable/content/pages.content'
-import { getFactoryState } from '@/design/factory/get-factory-state'
-import { getProductKind } from '@/design/factory/get-product-kind'
 import { EditableContactLeadForm } from '@/editable/components/EditableContactLeadForm'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
 
-function getTone(kind: ReturnType<typeof getProductKind>) {
-  if (kind === 'directory') {
-    return {
-      shell: 'bg-[#f8fbff] text-slate-950',
-      panel: 'border border-slate-200 bg-white',
-      soft: 'border border-slate-200 bg-slate-50',
-      muted: 'text-slate-600',
-      action: 'bg-slate-950 text-white hover:bg-slate-800',
-    }
-  }
-  if (kind === 'editorial') {
-    return {
-      shell: 'bg-[#fbf6ee] text-[#241711]',
-      panel: 'border border-[#dcc8b7] bg-[#fffdfa]',
-      soft: 'border border-[#e6d6c8] bg-[#fff4e8]',
-      muted: 'text-[#6e5547]',
-      action: 'bg-[#241711] text-[#fff1e2] hover:bg-[#3a241b]',
-    }
-  }
-  if (kind === 'visual') {
-    return {
-      shell: 'bg-[#07101f] text-white',
-      panel: 'border border-white/10 bg-white/6',
-      soft: 'border border-white/10 bg-white/5',
-      muted: 'text-slate-300',
-      action: 'bg-[#8df0c8] text-[#07111f] hover:bg-[#77dfb8]',
-    }
-  }
-  return {
-    shell: 'bg-[#f7f1ea] text-[#261811]',
-    panel: 'border border-[#ddcdbd] bg-[#fffaf4]',
-    soft: 'border border-[#e8dbce] bg-[#f3e8db]',
-    muted: 'text-[#71574a]',
-    action: 'bg-[#5b2b3b] text-[#fff0f5] hover:bg-[#74364b]',
-  }
-}
+const lanes = [
+  { icon: PlusCircle, title: 'Listing enquiry', body: 'Ask about a classified post, seller details, category choice, pricing notes, or publishing a new ad.' },
+  { icon: Building2, title: 'Business listing support', body: 'Request updates for company pages, service details, seller profiles, or product information.' },
+  { icon: MapPin, title: 'Category guidance', body: 'Share what you are trying to buy, sell, rent, hire, or promote so the right section can be suggested.' },
+  { icon: Phone, title: 'Contact details', body: 'Report outdated listing details or ask for the best contact path for a product or service.' },
+]
 
-export default function ContactPage() {
-  const { recipe } = getFactoryState()
-  const productKind = getProductKind(recipe)
-  const tone = getTone(productKind)
-
-  const lanes =
-    productKind === 'directory'
-      ? [
-          { icon: Building2, title: 'Business onboarding', body: 'Add listings, verify operational details, and bring your business surface live quickly.' },
-          { icon: Phone, title: 'Partnership support', body: 'Talk through bulk publishing, local growth, and operational setup questions.' },
-          { icon: MapPin, title: 'Coverage requests', body: 'Need a new geography or category lane? We can shape the directory around it.' },
-        ]
-      : productKind === 'editorial'
-        ? [
-            { icon: FileText, title: 'Editorial submissions', body: 'Pitch essays, columns, and long-form ideas that fit the publication.' },
-            { icon: Mail, title: 'Newsletter partnerships', body: 'Coordinate sponsorships, collaborations, and issue-level campaigns.' },
-            { icon: Sparkles, title: 'Contributor support', body: 'Get help with voice, formatting, and publication workflow questions.' },
-          ]
-        : productKind === 'visual'
-          ? [
-              { icon: ImageIcon, title: 'Creator collaborations', body: 'Discuss gallery launches, creator features, and visual campaigns.' },
-              { icon: Sparkles, title: 'Licensing and use', body: 'Reach out about usage rights, commercial requests, and visual partnerships.' },
-              { icon: Mail, title: 'Media kits', body: 'Request creator decks, editorial support, or visual feature placement.' },
-            ]
-          : [
-              { icon: Bookmark, title: 'Collection submissions', body: 'Suggest resources, boards, and links that deserve a place in the library.' },
-              { icon: Mail, title: 'Resource partnerships', body: 'Coordinate curation projects, reference pages, and link programs.' },
-              { icon: Sparkles, title: 'Curator support', body: 'Need help organizing shelves, collections, or profile-connected boards?' },
-            ]
-
+export default async function ContactPage() {
+  const relatedPosts = await fetchTaskPosts('listing', 3, { allowMockFallback: true })
   return (
-    <EditableSiteShell className={tone.shell}>
-      <main className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] opacity-70">{pagesContent.contact.eyebrow}</p>
-            <h1 className="mt-4 text-5xl font-semibold tracking-[-0.05em]">{pagesContent.contact.title}</h1>
-            <p className={`mt-5 max-w-2xl text-sm leading-8 ${tone.muted}`}>{pagesContent.contact.description}</p>
-            <div className="mt-8 space-y-4">
-              {lanes.map((lane) => (
-                <div key={lane.title} className={`rounded-[1.6rem] p-5 ${tone.soft}`}>
-                  <lane.icon className="h-5 w-5" />
-                  <h2 className="mt-3 text-xl font-semibold">{lane.title}</h2>
-                  <p className={`mt-2 text-sm leading-7 ${tone.muted}`}>{lane.body}</p>
+    <EditableSiteShell>
+      <main className="pt-32 text-[#10203a]">
+        <section className="rapid-shell py-12">
+          <div className="rapid-glass rounded-[28px] p-8 sm:p-10">
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#0b5483]">{pagesContent.contact.eyebrow}</p>
+            <h1 className="mt-5 max-w-3xl text-[54px] font-black leading-[1.05] tracking-[-0.04em] text-[#153b72]">{pagesContent.contact.title}</h1>
+            <p className="mt-7 max-w-2xl text-lg leading-9 text-[#183b69]">{pagesContent.contact.description}</p>
+          </div>
+        </section>
+
+        <section className="rapid-shell grid min-w-0 gap-10 py-8 lg:grid-cols-[minmax(0,1fr)_470px]">
+          <div className="rapid-animate-slide">
+            <div className="grid gap-5 sm:grid-cols-2">
+              {relatedPosts.map((post) => (
+                <Link key={post.id || post.slug} href={postHref('listing', post, '/listing')} className="rapid-feature-card overflow-hidden rounded-2xl bg-white/80 p-4 shadow-[0_12px_32px_rgba(11,84,131,0.13)]">
+                  <img src={getEditablePostImage(post)} alt={post.title} className="h-36 w-full rounded-xl object-cover" />
+                  <p className="mt-4 text-sm font-bold uppercase tracking-[0.14em] text-[#0b5483]">{post.tags?.[0] || 'Listing'}</p>
+                  <h2 className="mt-2 line-clamp-2 text-xl font-black text-[#0b5483]">{post.title}</h2>
+                  <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#637083]">{getEditableExcerpt(post, 120)}</p>
+                </Link>
+              ))}
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              {lanes.map((lane, index) => (
+                <div key={lane.title} className="rapid-feature-card rounded-2xl bg-white/75 p-6 shadow-[0_12px_32px_rgba(11,84,131,0.13)]" style={{ animationDelay: `${index * 80}ms` }}>
+                  <lane.icon className="h-7 w-7 text-[#0b5483]" />
+                  <h2 className="mt-4 text-xl font-black text-[#0b5483]">{lane.title}</h2>
+                  <p className="mt-2 text-sm leading-7 text-[#637083]">{lane.body}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className={`rounded-[2rem] p-7 ${tone.panel}`}>
-            <h2 className="text-2xl font-semibold">{pagesContent.contact.formTitle}</h2>
+          <div className="rapid-glass rapid-animate-rise min-w-0 overflow-hidden rounded-[28px] p-6 sm:p-7">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="rapid-pill flex h-12 w-12 items-center justify-center"><Mail className="h-5 w-5 text-[#0b5483]" /></span>
+              <h2 className="text-2xl font-black text-[#0b5483]">{pagesContent.contact.formTitle}</h2>
+            </div>
             <EditableContactLeadForm />
           </div>
         </section>
