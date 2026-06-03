@@ -1,13 +1,12 @@
 import Link from 'next/link'
-import type { CSSProperties } from 'react'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Bookmark, Building2, Camera, CheckCircle2, Download, ExternalLink, FileText, Globe2, Mail, MapPin, MessageCircle, Phone, Tag, UserRound } from 'lucide-react'
+import { CheckCircle, Eye, Heart, Mail, Phone, Share2 } from 'lucide-react'
 import { buildPostMetadata, buildTaskMetadata } from '@/lib/seo'
 import { buildPostUrl, fetchArticleComments, fetchTaskPostBySlug, fetchTaskPosts } from '@/lib/task-data'
 import { getTaskConfig, SITE_CONFIG, type TaskKey } from '@/lib/site-config'
 import type { SitePost } from '@/lib/site-connector'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
-import { getVisualPreset, visualSystem } from '@/editable/theme/visual-system'
+import { getEditableCategory, getEditableExcerpt, getEditableLocation, getEditablePostImage, getEditablePrice } from '@/editable/cards/PostCards'
 
 export const revalidate = 3
 
@@ -23,413 +22,185 @@ export async function EditableTaskDetailRoute({ task, params }: { task: TaskKey;
   const slug = resolved.slug || resolved.username || ''
   const post = await fetchTaskPostBySlug(task, slug)
   if (!post) notFound()
-  const related = (await fetchTaskPosts(task, 7)).filter((item) => item.slug !== post.slug).slice(0, 4)
+  const related = (await fetchTaskPosts(task, 12)).filter((item) => item.slug !== post.slug).slice(0, 8)
   const comments = task === 'article' ? await fetchArticleComments(post.slug, 50) : []
   return <TaskDetailView task={task} post={post} related={related} comments={comments} />
 }
 
-const getContent = (post: SitePost) => post.content && typeof post.content === 'object' ? post.content as Record<string, unknown> : {}
+const contentOf = (post: SitePost) => post.content && typeof post.content === 'object' ? post.content as Record<string, unknown> : {}
 const asText = (value: unknown) => typeof value === 'string' ? value.trim() : ''
 const isUrl = (value: string) => value.startsWith('/') || /^https?:\/\//i.test(value)
-
 const getField = (post: SitePost, keys: string[]) => {
-  const content = getContent(post)
+  const content = contentOf(post)
   for (const key of keys) {
     const value = asText(content[key])
     if (value) return value
   }
   return ''
 }
-
 const getImages = (post: SitePost) => {
-  const content = getContent(post)
+  const content = contentOf(post)
   const media = Array.isArray(post.media) ? post.media.map((item) => item?.url).filter((url): url is string => typeof url === 'string' && isUrl(url)) : []
   const images = Array.isArray(content.images) ? content.images.filter((url): url is string => typeof url === 'string' && isUrl(url)) : []
-  const singleImages = ['image', 'featuredImage', 'thumbnail', 'logo', 'avatar'].map((key) => asText(content[key])).filter((url) => url && isUrl(url))
-  return [...media, ...images, ...singleImages].filter(Boolean).slice(0, 12)
+  const singles = ['image', 'featuredImage', 'thumbnail', 'logo', 'avatar'].map((key) => asText(content[key])).filter((url) => url && isUrl(url))
+  return [...media, ...images, ...singles].filter(Boolean).slice(0, 10)
 }
-
-const getBody = (post: SitePost) => {
-  const content = getContent(post)
-  return asText(content.body) || asText(content.description) || asText(content.details) || post.summary || 'Details will appear here once available.'
-}
-
-const escapeHtml = (value: string) => value
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;')
-
-const safeUrl = (value: string) => /^https?:\/\//i.test(value) ? value : '#'
-
-const linkifyMarkdown = (value: string) => value
-  .replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/gi, (_match, label, url) => `<a href="${safeUrl(url)}" target="_blank" rel="nofollow noopener noreferrer">${label}</a>`)
-
-const linkifyText = (value: string) => linkifyMarkdown(value)
-  .replace(/(^|[\s(>])((https?:\/\/)[^\s<)]+)/gi, (_match, prefix, url) => `${prefix}<a href="${safeUrl(url)}" target="_blank" rel="nofollow noopener noreferrer">${url}</a>`)
-
-const hardenLinks = (html: string) => html.replace(/<a\s+([^>]*href=["'][^"']+["'][^>]*)>/gi, (_match, attrs) => {
-  let next = String(attrs).replace(/\s+on\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-  if (!/\starget=/i.test(next)) next += ' target="_blank"'
-  if (!/\srel=/i.test(next)) next += ' rel="nofollow noopener noreferrer"'
-  return `<a ${next}>`
-})
-
-const sanitizeHtml = (html: string) => hardenLinks(html
-  .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-  .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-  .replace(/<(iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, '')
-  .replace(/\s+on\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-  .replace(/(href|src)=(['"])javascript:[\s\S]*?\2/gi, '$1="#"'))
-
-const formatPlainText = (raw: string) => {
-  const value = raw.trim()
-  if (!value) return ''
-  if (/<[a-z][\s\S]*>/i.test(value)) return sanitizeHtml(linkifyMarkdown(value))
-  return value
-    .split(/\n{2,}/)
-    .map((part) => `<p>${linkifyText(escapeHtml(part).replace(/\n/g, '<br />'))}</p>`)
-    .join('')
-}
-
-const summaryText = (post: SitePost) => post.summary || asText(getContent(post).description) || asText(getContent(post).excerpt) || ''
-const categoryOf = (post: SitePost, fallback: string) => asText(getContent(post).category) || post.tags?.[0] || fallback
-const mapSrcFor = (post: SitePost) => {
-  const address = getField(post, ['address', 'location', 'city'])
-  const lat = getField(post, ['lat', 'latitude'])
-  const lng = getField(post, ['lng', 'lon', 'longitude'])
-  if (lat && lng) return `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=14&output=embed`
-  if (address) return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=13&output=embed`
-  return ''
-}
+const bodyText = (post: SitePost) => asText(contentOf(post).body) || asText(contentOf(post).description) || asText(contentOf(post).details) || post.summary || 'This listing is active on viendoanhnhan.com. Contact the seller or browse related classifieds for more information.'
 
 export function TaskDetailView({ task, post, related, comments = [] }: { task: TaskKey; post: SitePost; related: SitePost[]; comments?: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
-  const preset = getVisualPreset(visualSystem.recommendedPreset as any)
-  const detailVars = { '--detail-bg': preset.colors.background, '--detail-text': preset.colors.foreground, '--detail-surface': preset.colors.surface, '--detail-accent': preset.colors.accent } as CSSProperties
+  const taskConfig = getTaskConfig(task)
+  const images = getImages(post)
+  const mainImage = images[0] || getEditablePostImage(post)
+  const seller = getField(post, ['seller', 'company', 'author', 'name']) || SITE_CONFIG.name
+  const phone = getField(post, ['phone', 'telephone', 'mobile'])
+  const email = getField(post, ['email'])
 
   return (
     <EditableSiteShell>
-      <main style={detailVars} className="bg-[var(--detail-bg)] text-[var(--detail-text)]">
-        {task === 'listing' ? <ListingDetail post={post} related={related} /> : null}
-        {task === 'classified' ? <ClassifiedDetail post={post} related={related} /> : null}
-        {task === 'image' ? <ImageDetail post={post} related={related} /> : null}
-        {task === 'sbm' ? <BookmarkDetail post={post} related={related} /> : null}
-        {task === 'pdf' ? <PdfDetail post={post} related={related} /> : null}
-        {task === 'profile' ? <ProfileDetail post={post} related={related} /> : null}
-        {task === 'article' ? <ArticleDetail post={post} related={related} comments={comments} /> : null}
+      <main className="pt-32">
+        <section className="rapid-shell grid gap-7 py-8 lg:grid-cols-[minmax(0,1fr)_364px]">
+          <article className="min-w-0">
+            <div className="mb-5 text-sm text-[#4a9d5d]">
+              <Link href="/">viendoanhnhan.com</Link> / <Link href={taskConfig?.route || `/${task}`}>{taskConfig?.label || task}</Link> / {getEditableCategory(post)} / {post.title}
+            </div>
+            <h2 className="mb-5 text-[32px] font-black text-[#0b5483]">Listing Detail</h2>
+
+            <div className="rapid-glass rounded-2xl p-3">
+              <div className="mb-2 flex justify-center gap-5 py-2 text-[#37b760]"><Share2 className="h-5 w-5" /><CheckCircle className="h-5 w-5" /><Heart className="h-5 w-5" /></div>
+              <div className="relative">
+                <img src={mainImage} alt={post.title} className="h-auto max-h-[650px] w-full rounded-xl object-cover" />
+                <span className="absolute left-4 top-4 bg-black/40 px-3 py-2 text-sm text-white">View Larger</span>
+                <span className="absolute right-4 top-4 bg-black/40 px-3 py-2 text-sm text-white">Map View</span>
+              </div>
+              {images.length > 1 ? (
+                <div className="flex gap-3 bg-[#999] px-20 py-3">
+                  {images.slice(0, 4).map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="h-[60px] w-[72px] border border-white object-cover" />)}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rapid-glass mt-7 rounded-2xl px-8 py-8">
+              <div className="mb-7 flex gap-10 border-b border-[#d3d3d3] text-[16px]">
+                {['Listing', 'Tell a Friend', 'Loan / Mortgage', 'Comments'].map((tab, index) => <span key={tab} className={`pb-4 ${index === 0 ? 'border-b-3 border-black text-black' : 'text-[#4a9d5d]'}`}>{tab}</span>)}
+              </div>
+              <h1 className="text-[38px] font-black leading-tight text-[#101827]">{post.title}</h1>
+              <p className="mt-4 text-2xl text-black">{getEditablePrice(post)}</p>
+              <p className="mt-5 inline-flex items-center gap-2 text-xs uppercase text-[#87909d]"><span className="flex h-18 w-18 items-center justify-center rounded-full bg-[#50bd6d] text-white">⌃</span> Common</p>
+              <h2 className="mt-5 text-sm text-[#87909d]">Description</h2>
+              <div className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-7 text-[#25324a]">{bodyText(post).replace(/<[^>]*>/g, ' ')}</div>
+
+              <div className="mt-8">
+                <p className="mb-4 inline-flex items-center gap-2 text-xs uppercase text-[#87909d]"><span className="flex h-18 w-18 items-center justify-center rounded-full bg-[#50bd6d] text-white">⌃</span> Location</p>
+                <dl className="grid max-w-xl grid-cols-[150px_minmax(0,1fr)] gap-y-3 text-sm">
+                  <dt className="text-[#87909d]">Country</dt><dd>Country is hidden, please sign in</dd>
+                  <dt className="text-[#87909d]">Region</dt><dd>{getEditableLocation(post)}</dd>
+                  <dt className="text-[#87909d]">Address</dt><dd>{getField(post, ['address']) || getEditableLocation(post)}</dd>
+                </dl>
+              </div>
+
+              <div className="mt-8">
+                <p className="mb-3 text-sm text-[#4a9d5d]">Save as PDF</p>
+                <div className="flex w-fit border border-dotted border-red-500">
+                  {['f', 't', 'w', 'v', '+'].map((item) => <span key={item} className="flex h-8 w-8 items-center justify-center bg-[#3366ff] text-lg font-bold text-white">{item}</span>)}
+                </div>
+                <Link href="/search" className="mt-5 block text-sm">View QR Code ▦</Link>
+              </div>
+            </div>
+
+            <section className="mt-8">
+              <h2 className="mb-5 text-[26px] font-light text-[#25324a]">Get More Details</h2>
+              <SellerPanel seller={seller} phone={phone} email={email} wide />
+            </section>
+            <section className="mt-8">
+              <h2 className="mb-5 text-[32px] font-black text-[#0b5483]">Listing Overview</h2>
+              <div className="rapid-glass overflow-hidden rounded-[18px] p-4">
+                {images.length ? (
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+                    <img src={mainImage} alt={post.title} className="h-[220px] w-full rounded-[14px] object-cover" />
+                    <div className="grid gap-3">
+                      {images.slice(1, 4).map((image, index) => (
+                        <img key={`${image}-${index}`} src={image} alt={`${post.title} related ${index + 1}`} className="h-[64px] w-full rounded-[12px] object-cover" />
+                      ))}
+                      {images.length === 1 ? <img src={mainImage} alt={`${post.title} related preview`} className="h-[64px] w-full rounded-[12px] object-cover" /> : null}
+                    </div>
+                  </div>
+                ) : (
+                  <img src={getEditablePostImage(post)} alt={post.title} className="h-[220px] w-full rounded-[14px] object-cover" />
+                )}
+              </div>
+            </section>
+            <RelatedListings task={task} related={related} />
+            {comments.length ? <Comments comments={comments} /> : null}
+          </article>
+
+          <aside className="space-y-7">
+            <SellerPanel seller={seller} phone={phone} email={email} />
+            <NewsPanel related={related} task={task} />
+            <div className="classified-widget"><h3 className="mb-4 text-xl font-normal text-[#25324a]">Polls</h3><p className="text-sm font-semibold">How is your business doing?</p><label className="mt-3 block text-sm"><input type="radio" name="business" /> Up</label><label className="block text-sm"><input type="radio" name="business" /> Down</label><button className="mt-4 bg-[var(--editable-nav-dark)] px-6 py-3 text-sm text-white">Vote</button></div>
+          </aside>
+        </section>
       </main>
     </EditableSiteShell>
   )
 }
 
-function BackLink({ task }: { task: TaskKey }) {
-  const taskConfig = getTaskConfig(task)
+function SellerPanel({ seller, phone, email, wide = false }: { seller: string; phone?: string; email?: string; wide?: boolean }) {
   return (
-    <Link href={taskConfig?.route || '/'} className="inline-flex items-center gap-2 rounded-full border border-[var(--editable-border)] bg-white/70 px-4 py-2 text-sm font-black">
-      <ArrowLeft className="h-4 w-4" /> Back to {taskConfig?.label || 'posts'}
-    </Link>
-  )
-}
-
-function ArticleDetail({ post, related, comments }: { post: SitePost; related: SitePost[]; comments: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
-  const images = getImages(post)
-  return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8 lg:py-16">
-      <article className="min-w-0 rounded-[2.7rem] border border-[var(--editable-border)] bg-[var(--detail-surface)] p-5 shadow-[0_30px_90px_rgba(15,23,42,0.09)] sm:p-8 lg:p-12">
-        <BackLink task="article" />
-        <p className="mt-8 text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">{categoryOf(post, 'Article')}</p>
-        <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl lg:text-7xl">{post.title}</h1>
-        {images[0] ? <img src={images[0]} alt="" className="mt-8 max-h-[620px] w-full rounded-[2rem] object-cover" /> : null}
-        <BodyContent post={post} />
-        <EditableComments slug={post.slug} comments={comments} />
-      </article>
-      <RelatedPanel task="article" post={post} related={related} />
-    </section>
-  )
-}
-
-function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const images = getImages(post)
-  const logo = images[0]
-  const address = getField(post, ['address', 'location', 'city'])
-  const phone = getField(post, ['phone', 'telephone', 'mobile'])
-  const email = getField(post, ['email'])
-  const website = getField(post, ['website', 'url'])
-  const mapSrc = mapSrcFor(post)
-  return (
-    <section className="mx-auto max-w-[var(--editable-container)] px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
-      <BackLink task="listing" />
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <article className="rounded-[2.8rem] border border-[var(--editable-border)] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.09)] sm:p-9">
-          <div className="grid gap-6 sm:grid-cols-[150px_1fr]">
-            <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-[2rem] bg-[var(--detail-bg)] ring-1 ring-[var(--editable-border)]">
-              {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <Building2 className="h-14 w-14 opacity-40" />}
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">Business listing</p>
-              <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
-              <p className="mt-5 max-w-3xl text-base leading-8 opacity-70">{summaryText(post)}</p>
-            </div>
-          </div>
-          <InfoGrid items={[['Location', address, MapPin], ['Phone', phone, Phone], ['Email', email, Mail], ['Website', website, Globe2]]} />
-          <BodyContent post={post} />
-          <ImageStrip images={images.slice(1)} label="Business showcase" />
-        </article>
-        <aside className="space-y-5">
-          {mapSrc ? <MapBox src={mapSrc} label={address || post.title} /> : <ContactAction website={website} phone={phone} email={email} />}
-          {mapSrc ? <ContactAction website={website} phone={phone} email={email} /> : null}
-          <RelatedPanel task="listing" post={post} related={related} compact />
-        </aside>
+    <div className={`rapid-glass rounded-2xl p-8 ${wide ? '' : ''}`}>
+      <div className={wide ? 'grid gap-8 sm:grid-cols-[260px_minmax(0,1fr)]' : ''}>
+        <div>
+          <div className="flex h-[110px] w-[110px] items-center justify-center rounded-3xl bg-[#0b5483] text-3xl font-black italic text-white">VN</div>
+          <p className="mt-3 text-[var(--editable-link)]">{seller}</p>
+          <p className="text-sm italic text-[#87909d]">Seller information available on request</p>
+          <Link href="/classified" className="rapid-pill mt-4 inline-block px-4 py-2 text-sm font-bold text-black">View related listings</Link>
+        </div>
+      
       </div>
-    </section>
-  )
-}
-
-function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const images = getImages(post)
-  const price = getField(post, ['price', 'amount', 'budget'])
-  const location = getField(post, ['location', 'address', 'city'])
-  const condition = getField(post, ['condition', 'availability', 'type'])
-  const phone = getField(post, ['phone', 'telephone', 'mobile'])
-  const email = getField(post, ['email'])
-  const website = getField(post, ['website', 'url'])
-  return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-16">
-      <aside className="rounded-[2.5rem] border border-[var(--editable-border)] bg-[var(--detail-text)] p-7 text-[var(--detail-bg)] shadow-xl lg:sticky lg:top-24 lg:self-start">
-        <BackLink task="classified" />
-        <p className="mt-10 text-xs font-black uppercase tracking-[0.28em] opacity-60">Classified notice</p>
-        <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl">{post.title}</h1>
-        <div className="mt-8 grid gap-3">
-          {price ? <BadgeLine label="Price" value={price} /> : null}
-          {condition ? <BadgeLine label="Condition" value={condition} /> : null}
-          {location ? <BadgeLine label="Location" value={location} /> : null}
-        </div>
-        <div className="mt-8 flex flex-wrap gap-3">
-          {phone ? <a href={`tel:${phone}`} className="rounded-full bg-[var(--detail-bg)] px-5 py-3 text-sm font-black text-[var(--detail-text)]">Call now</a> : null}
-          {email ? <a href={`mailto:${email}`} className="rounded-full border border-white/25 px-5 py-3 text-sm font-black">Email</a> : null}
-        </div>
-      </aside>
-      <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:p-9">
-        <ImageStrip images={images} label="Offer images" large />
-        <BodyContent post={post} />
-        <ContactAction website={website} phone={phone} email={email} />
-        <RelatedPanel task="classified" post={post} related={related} />
-      </article>
-    </section>
-  )
-}
-
-function ImageDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const images = getImages(post)
-  return (
-    <section className="mx-auto max-w-[var(--editable-container)] px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
-      <BackLink task="image" />
-      <div className="mt-8 grid gap-8 lg:grid-cols-[0.72fr_1.28fr]">
-        <aside className="rounded-[2.5rem] border border-[var(--editable-border)] bg-white p-7 lg:sticky lg:top-24 lg:self-start">
-          <div className="inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--detail-bg)]"><Camera className="h-4 w-4" /> Image story</div>
-          <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl">{post.title}</h1>
-          <p className="mt-5 text-base leading-8 opacity-70">{summaryText(post)}</p>
-          <BodyContent post={post} compact />
-        </aside>
-        <div className="columns-1 gap-5 space-y-5 md:columns-2">
-          {(images.length ? images : ['/placeholder.svg?height=900&width=1200']).map((image, index) => (
-            <figure key={`${image}-${index}`} className="break-inside-avoid overflow-hidden rounded-[2rem] border border-[var(--editable-border)] bg-white shadow-sm">
-              <img src={image} alt="" className="w-full object-cover" />
-              {index === 0 ? <figcaption className="p-5 text-sm font-bold opacity-65">Featured visual from this image post.</figcaption> : null}
-            </figure>
-          ))}
-        </div>
-      </div>
-      <div className="mt-10"><RelatedPanel task="image" post={post} related={related} /></div>
-    </section>
-  )
-}
-
-function BookmarkDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const website = getField(post, ['website', 'url', 'link'])
-  return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-16">
-      <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-7 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:p-10">
-        <BackLink task="sbm" />
-        <div className="mt-10 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[var(--detail-text)] text-[var(--detail-bg)]"><Bookmark className="h-9 w-9" /></div>
-        <h1 className="mt-7 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
-        <p className="mt-5 max-w-3xl text-lg leading-9 opacity-70">{summaryText(post)}</p>
-        {website ? <Link href={website} target="_blank" rel="noreferrer" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-5 py-3 text-sm font-black text-[var(--detail-bg)]">Open saved resource <ExternalLink className="h-4 w-4" /></Link> : null}
-        <BodyContent post={post} />
-      </article>
-      <RelatedPanel task="sbm" post={post} related={related} />
-    </section>
-  )
-}
-
-function PdfDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const fileUrl = getField(post, ['fileUrl', 'pdfUrl', 'documentUrl', 'url'])
-  return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-16">
-      <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:p-9">
-        <BackLink task="pdf" />
-        <div className="mt-8 grid gap-6 sm:grid-cols-[120px_1fr]">
-          <div className="flex h-28 w-28 items-center justify-center rounded-[1.8rem] bg-[var(--detail-text)] text-[var(--detail-bg)]"><FileText className="h-12 w-12" /></div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">PDF resource</p>
-            <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
-          </div>
-        </div>
-        <BodyContent post={post} />
-        {fileUrl ? (
-          <div className="mt-8 overflow-hidden rounded-[2rem] border border-[var(--editable-border)] bg-[var(--detail-bg)]">
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--editable-border)] bg-white p-4">
-              <span className="text-sm font-black">Document preview</span>
-              <Link href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-4 py-2 text-xs font-black text-[var(--detail-bg)]">Download <Download className="h-4 w-4" /></Link>
-            </div>
-            <iframe src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} title={post.title} className="h-[78vh] w-full" />
-          </div>
-        ) : null}
-      </article>
-      <RelatedPanel task="pdf" post={post} related={related} />
-    </section>
-  )
-}
-
-function ProfileDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
-  const images = getImages(post)
-  const role = getField(post, ['role', 'designation', 'company', 'location'])
-  const website = getField(post, ['website', 'url'])
-  const email = getField(post, ['email'])
-  return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[420px_minmax(0,1fr)] lg:px-8 lg:py-16">
-      <aside className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-8 text-center shadow-[0_30px_90px_rgba(15,23,42,0.08)] lg:sticky lg:top-24 lg:self-start">
-        <BackLink task="profile" />
-        <div className="mx-auto mt-10 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-[var(--detail-bg)] ring-1 ring-[var(--editable-border)]">
-          {images[0] ? <img src={images[0]} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-16 w-16 opacity-45" />}
-        </div>
-        <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em]">{post.title}</h1>
-        {role ? <p className="mt-3 text-xs font-black uppercase tracking-[0.18em] text-[var(--detail-accent)]">{role}</p> : null}
-        <ContactAction website={website} email={email} />
-      </aside>
-      <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-7 shadow-sm sm:p-10">
-        <BodyContent post={post} />
-        <ImageStrip images={images.slice(1)} label="Profile gallery" />
-        <RelatedPanel task="profile" post={post} related={related} />
-      </article>
-    </section>
-  )
-}
-
-function BodyContent({ post, compact = false }: { post: SitePost; compact?: boolean }) {
-  return <div className={`article-content mt-8 max-w-none ${compact ? 'text-base leading-8' : 'text-lg leading-9'} opacity-80`} dangerouslySetInnerHTML={{ __html: formatPlainText(getBody(post)) }} />
-}
-
-function InfoGrid({ items }: { items: Array<[string, string, typeof MapPin]> }) {
-  const visible = items.filter(([, value]) => value)
-  if (!visible.length) return null
-  return (
-    <div className="mt-8 grid gap-3 sm:grid-cols-2">
-      {visible.map(([label, value, Icon]) => (
-        <div key={label} className="rounded-[1.5rem] border border-[var(--editable-border)] bg-[var(--detail-bg)] p-4">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] opacity-55"><Icon className="h-4 w-4" /> {label}</div>
-          <p className="mt-2 break-words text-sm font-bold leading-6 opacity-80">{value}</p>
-        </div>
-      ))}
     </div>
   )
 }
 
-function ImageStrip({ images, label, large = false }: { images: string[]; label: string; large?: boolean }) {
-  if (!images.length) return null
+function NewsPanel({ related, task }: { related: SitePost[]; task: TaskKey }) {
+  return (
+    <div className="rapid-glass rounded-2xl p-6">
+      <h3 className="mb-5 text-xl font-bold text-[#0b5483]">Related Updates</h3>
+      <div className="grid gap-5">
+        {related.slice(0, 4).map((post, index) => (
+          <Link key={post.id || post.slug} href={buildPostUrl(task, post.slug)} className="block">
+            <div className="mb-2 flex justify-between text-xs text-[#a0a6af]"><span>Related listing</span><span className="inline-flex items-center gap-1">View <Eye className="h-4 w-4 text-[#0b5483]" /></span></div>
+            <h4 className="text-[16px] leading-6 text-[var(--editable-link)]">{post.title}</h4>
+            {index % 2 === 0 ? <img src={getEditablePostImage(post)} alt={post.title} className="mt-3 h-[166px] w-full object-cover" /> : null}
+            <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#5d6675]">{getEditableExcerpt(post, 180)}</p>
+          </Link>
+        ))}
+        <Link href="/article" className="block rounded-full bg-[#0b5483] py-3 text-center text-sm font-bold text-white">All updates</Link>
+      </div>
+    </div>
+  )
+}
+
+function RelatedListings({ task, related }: { task: TaskKey; related: SitePost[] }) {
+  if (!related.length) return null
   return (
     <section className="mt-8">
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[var(--detail-accent)]">{label}</p>
-      <div className={`mt-4 grid gap-3 ${large ? 'sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
-        {images.slice(0, large ? 4 : 8).map((image, index) => <img key={`${image}-${index}`} src={image} alt="" className="aspect-[4/3] rounded-[1.4rem] object-cover ring-1 ring-[var(--editable-border)]" />)}
+      <h2 className="mb-5 text-[36px] font-black text-[#0b5483]">Latest Related Listings</h2>
+      <div className="rapid-glass grid gap-x-8 gap-y-7 rounded-2xl p-7 sm:grid-cols-2 lg:grid-cols-3">
+        {related.slice(0, 12).map((post) => (
+          <Link key={post.id || post.slug} href={buildPostUrl(task, post.slug)} className="grid grid-cols-[60px_minmax(0,1fr)] gap-3">
+            <img src={getEditablePostImage(post)} alt={post.title} className="h-[60px] w-[60px] object-cover" />
+            <span className="line-clamp-2 text-sm leading-5 text-[var(--editable-link)]">{post.title}</span>
+          </Link>
+        ))}
       </div>
     </section>
   )
 }
 
-function MapBox({ src, label }: { src: string; label: string }) {
+function Comments({ comments }: { comments: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-[var(--editable-border)] bg-white shadow-sm">
-      <div className="flex items-center gap-2 p-4 text-sm font-black"><MapPin className="h-4 w-4" /> {label || 'Map location'}</div>
-      <iframe src={src} title="Map" loading="lazy" className="h-80 w-full border-0" />
-    </div>
-  )
-}
-
-function ContactAction({ website, phone, email }: { website?: string; phone?: string; email?: string }) {
-  if (!website && !phone && !email) return null
-  return (
-    <div className="mt-5 rounded-[2rem] border border-[var(--editable-border)] bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.22em] opacity-55">Quick actions</p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        {website ? <Link href={website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-4 py-2 text-sm font-black text-[var(--detail-bg)]">Website <ExternalLink className="h-4 w-4" /></Link> : null}
-        {phone ? <a href={`tel:${phone}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--editable-border)] px-4 py-2 text-sm font-black"><Phone className="h-4 w-4" /> Call</a> : null}
-        {email ? <a href={`mailto:${email}`} className="inline-flex items-center gap-2 rounded-full border border-[var(--editable-border)] px-4 py-2 text-sm font-black"><Mail className="h-4 w-4" /> Email</a> : null}
-      </div>
-    </div>
-  )
-}
-
-function BadgeLine({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm"><span className="font-black uppercase tracking-[0.16em] opacity-60">{label}</span><span className="font-black">{value}</span></div>
-}
-
-function RelatedPanel({ task, post, related, compact = false }: { task: TaskKey; post: SitePost; related: SitePost[]; compact?: boolean }) {
-  const taskConfig = getTaskConfig(task)
-  return (
-    <aside className="min-w-0 space-y-5">
-      {!compact ? (
-        <div className="rounded-[2rem] border border-[var(--editable-border)] bg-white/70 p-5 backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-55">About this post</p>
-          <div className="mt-4 grid gap-3 text-sm font-bold opacity-75">
-            <p className="inline-flex items-center gap-2"><Tag className="h-4 w-4" /> Task: {taskConfig?.label || task}</p>
-            <p className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Site: {SITE_CONFIG.name}</p>
-            {post.publishedAt ? <p>Published: {new Date(post.publishedAt).toLocaleDateString()}</p> : null}
-          </div>
-        </div>
-      ) : null}
-      {related.length ? (
-        <div className="rounded-[2rem] border border-[var(--editable-border)] bg-white/70 p-5 backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-black tracking-[-0.04em]">More like this</h2>
-            <Link href={taskConfig?.route || '/'} className="text-xs font-black uppercase tracking-[0.16em] opacity-55">View all</Link>
-          </div>
-          <div className="mt-5 grid gap-3">
-            {related.map((item) => <RelatedCard key={item.id || item.slug} task={task} post={item} />)}
-          </div>
-        </div>
-      ) : null}
-    </aside>
-  )
-}
-
-function RelatedCard({ task, post }: { task: TaskKey; post: SitePost }) {
-  const image = getImages(post)[0]
-  return (
-    <Link href={buildPostUrl(task, post.slug)} className="group flex gap-3 rounded-2xl border border-[var(--editable-border)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-lg">
-      {image && task !== 'sbm' ? <img src={image} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[var(--detail-bg)]"><FileText className="h-6 w-6 opacity-45" /></div>}
-      <div className="min-w-0">
-        <h3 className="line-clamp-3 text-sm font-black leading-tight tracking-[-0.03em]">{post.title}</h3>
-        <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-60">{summaryText(post)}</p>
-      </div>
-    </Link>
-  )
-}
-
-function EditableComments({ slug, comments }: { slug: string; comments: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
-  return (
-    <section className="mt-10 rounded-[2rem] border border-[var(--editable-border)] bg-white/70 p-5">
-      <div className="flex items-center gap-2 text-lg font-black"><MessageCircle className="h-5 w-5" /> Comments</div>
-      <div className="mt-5 grid gap-3">
-        {comments.slice(0, 5).map((comment) => (
-          <div key={comment.id} className="rounded-2xl border border-[var(--editable-border)] bg-white p-4">
-            <p className="text-sm font-black">{comment.name}</p>
-            <p className="mt-2 text-sm leading-6 opacity-70">{comment.comment}</p>
-          </div>
-        ))}
-        {!comments.length ? <p className="text-sm opacity-60">No comments yet for {slug}.</p> : null}
-      </div>
+    <section className="mt-8 bg-[#f4f4f4] p-7">
+      <h2 className="mb-5 text-[26px] font-light text-[#25324a]">Comments</h2>
+      {comments.slice(0, 5).map((comment) => <div key={comment.id} className="mb-4 border-b border-[#d3d3d3] pb-4 text-sm"><p className="font-semibold">{comment.name}</p><p className="mt-2 text-[#637083]">{comment.comment}</p></div>)}
     </section>
   )
 }
