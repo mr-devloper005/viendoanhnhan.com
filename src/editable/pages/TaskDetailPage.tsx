@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { CheckCircle, Eye, Heart, Mail, Phone, Share2 } from 'lucide-react'
+import { CheckCircle, Eye, Heart, Share2 } from 'lucide-react'
 import { buildPostMetadata, buildTaskMetadata } from '@/lib/seo'
 import { buildPostUrl, fetchArticleComments, fetchTaskPostBySlug, fetchTaskPosts } from '@/lib/task-data'
 import { getTaskConfig, SITE_CONFIG, type TaskKey } from '@/lib/site-config'
@@ -144,7 +144,7 @@ export function TaskDetailView({ task, post, related, comments = [] }: { task: T
   )
 }
 
-function SellerPanel({ seller, phone, email, wide = false }: { seller: string; phone?: string; email?: string; wide?: boolean }) {
+function SellerPanel({ seller, wide = false }: { seller: string; phone?: string; email?: string; wide?: boolean }) {
   return (
     <div className={`rapid-glass rounded-2xl p-8 ${wide ? '' : ''}`}>
       <div className={wide ? 'grid gap-8 sm:grid-cols-[260px_minmax(0,1fr)]' : ''}>

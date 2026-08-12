@@ -52,10 +52,19 @@ export function getEditablePostImage(post?: SitePost | null) {
   }) || fallbackImage
 }
 
+function stripHtml(value: string) {
+  let text = value.replace(/<[^>]*>/g, ' ')
+  text = text.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+  text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+  text = text.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  text = text.replace(/<[^>]*>/g, ' ')
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 export function getEditableExcerpt(post?: SitePost | null, limit = 150) {
   const content = contentOf(post)
   const raw = asText(content.description) || asText(content.summary) || asText(content.excerpt) || asText(content.body) || post?.summary || ''
-  const clean = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const clean = stripHtml(raw)
   return clean.length > limit ? `${clean.slice(0, limit).trim()}...` : clean
 }
 
